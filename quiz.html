@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Offline Quiz App</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 600px; margin: auto; }
+        .hidden { display: none; }
+        .question { margin-bottom: 10px; font-weight: bold; }
+        button { margin-top: 10px; padding: 10px; cursor: pointer; }
+        .selected { background-color: lightblue; }
+        .result-item { margin-bottom: 15px; padding: 10px; border: 1px solid #ddd; border-radius: 5px; }
+        .correct { background-color: #d4edda; }
+        .incorrect { background-color: #f8d7da; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Quiz Manager</h2>
+        <div id="questionForm">
+            <h3>Add a New Question</h3>
+            <input type="text" id="questionText" placeholder="Enter question" required>
+            <input type="text" id="category" placeholder="Enter category" required>
+            <div id="answers">
+                <input type="text" class="answer" placeholder="Answer 1 (Correct)" required>
+                <input type="text" class="answer" placeholder="Answer 2" required>
+                <input type="text" class="answer" placeholder="Answer 3" required>
+                <input type="text" class="answer" placeholder="Answer 4" required>
+                <button type="button" onclick="addMoreAnswers()">Add More Answers</button>
+            </div>
+            <button type="button" onclick="addQuestion()">Add Question</button>
+            <button type="button" onclick="displayQuestions()">Show Questions</button>
+            <button type="button" onclick="startQuiz()">Start Quiz</button>
+        </div>
+
+        <div id="questionList">
+            <h3>Existing Questions</h3>
+            <ul id="questionsDisplay"></ul>
+        </div>
+
+        <div id="quizSection" class="hidden">
+            <h3>Quiz</h3>
+            <p id="quizProgress"></p>
+            <p id="quizQuestion" class="question"></p>
+            <div id="quizAnswers"></div>
+            <button type="button" onclick="previousQuestion()">Previous</button>
+            <button type="button" onclick="nextQuestion()">Next</button>
+            <button type="button" onclick="submitQuiz()">Submit Quiz</button>
+        </div>
+
+        <div id="resultSection" class="hidden">
+            <h3>Quiz Results</h3>
+            <div id="quizResults"></div>
+            <button type="button" onclick="resetQuiz()">Restart Quiz</button>
+        </div>
+    </div>
+
+    <script>
+        let questions = JSON.parse(localStorage.getItem("quizQuestions")) || [];
+        let currentQuestionIndex = 0;
+        let userAnswers = [];
+        let selectedQuestions = [];
+
+        function startQuiz() {
+            if (questions.length === 0) {
+                alert("No questions available. Please add some first.");
+                return;
+            }
+            selectedQuestions = shuffleArray([...questions]);
+            if (selectedQuestions.length > 10) {
+                selectedQuestions = selectedQuestions.slice(0, 10);
+            }
+            
+            document.getElementById("questionForm").classList.add("hidden");
+            document.getElementById("questionList").classList.add("hidden");
+            document.getElementById("quizSection").classList.remove("hidden");
+            userAnswers = new Array(selectedQuestions.length).fill(null);
+            currentQuestionIndex = 0;
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            let quizQuestion = document.getElementById("quizQuestion");
+            let quizAnswers = document.getElementById("quizAnswers");
+            let quizProgress = document.getElementById("quizProgress");
+            quizAnswers.innerHTML = "";
+            
+            let q = selectedQuestions[currentQuestionIndex];
+            quizQuestion.textContent = q.question;
+            quizProgress.textContent = `Question ${currentQuestionIndex + 1} of ${selectedQuestions.length}`;
+            
+            q.answers.forEach(answer => {
+                let btn = document.createElement("button");
+                btn.textContent = answer;
+                btn.onclick = () => {
+                    userAnswers[currentQuestionIndex] = answer;
+                    document.querySelectorAll("#quizAnswers button").forEach(b => b.classList.remove("selected"));
+                    btn.classList.add("selected");
+                };
+                quizAnswers.appendChild(btn);
+            });
+        }
+
+        function submitQuiz() {
+            let score = 0;
+            let quizResults = document.getElementById("quizResults");
+            quizResults.innerHTML = "";
+            
+            selectedQuestions.forEach((q, index) => {
+                let correct = q.correct === userAnswers[index];
+                let resultItem = document.createElement("div");
+                resultItem.classList.add("result-item", correct ? "correct" : "incorrect");
+                
+                resultItem.innerHTML = `<strong>Question ${index + 1}:</strong> ${q.question}<br>
+                <strong>Your Answer:</strong> ${userAnswers[index] || "(No Answer)"} <br>
+                <strong>Correct Answer:</strong> ${q.correct}`;
+                
+                quizResults.appendChild(resultItem);
+                if (correct) score++;
+            });
+            
+            let finalScore = document.createElement("div");
+            finalScore.innerHTML = `<h3>Final Score: ${score} / ${selectedQuestions.length}</h3>`;
+            quizResults.appendChild(finalScore);
+            
+            document.getElementById("quizSection").classList.add("hidden");
+            document.getElementById("resultSection").classList.remove("hidden");
+        }
+
+        function resetQuiz() {
+            document.getElementById("resultSection").classList.add("hidden");
+            document.getElementById("questionForm").classList.remove("hidden");
+            document.getElementById("questionList").classList.remove("hidden");
+        }
+
+        function shuffleArray(array) {
+            return array.sort(() => Math.random() - 0.5);
+        }
+
+        function displayQuestions() {
+            let questionList = document.getElementById("questionList");
+            let questionDisplay = document.getElementById("questionsDisplay");
+            questionDisplay.innerHTML = "";
+            
+            if (questions.length > 0) {
+                questionList.classList.remove("hidden");
+            } else {
+                questionList.classList.add("hidden");
+            }
+            
+            questions.forEach((q, index) => {
+                let li = document.createElement("li");
+                li.textContent = (index + 1) + ". " + q.question + " (Category: " + q.category + ")";
+                let deleteBtn = document.createElement("button");
+                deleteBtn.textContent = "Delete";
+                deleteBtn.onclick = () => deleteQuestion(index);
+                li.appendChild(deleteBtn);
+                questionDisplay.appendChild(li);
+            });
+        }
+
+        function deleteQuestion(index) {
+            questions.splice(index, 1);
+            localStorage.setItem("quizQuestions", JSON.stringify(questions));
+            displayQuestions();
+        }
+
+        displayQuestions();
+    </script>
+</body>
+</html>
+
